@@ -24,7 +24,8 @@ periods = [
 {"year":"2010-2011","id":"48"},
 {"year":"2011-2012","id":"49"},
 {"year":"2012-2013","id":"51"},
-{"year":"2013-2014","id":"55"}
+{"year":"2013-2014","id":"55"},
+{"year":"2014-2015","id":"56"}
 ]
 
 partyGroups = [{"entityID":4,"group":"alp"},
@@ -208,7 +209,7 @@ for x in xrange(upto, len(periods)):
             if recipID == groupID['entityID']:
                 data['partyGroup'] = groupID['group']
 
-        #print data
+        print data
         scraperwiki.sqlite.save(unique_keys=["yearcount","donUrl","period"], data=data)
         scraperwiki.sqlite.save_var('uptotrs', i)
 
