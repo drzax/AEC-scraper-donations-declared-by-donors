@@ -85,10 +85,6 @@ else:
 #to run entirely again, just set upto to 0 
 upto = 0    
 
-#unique number for every entry
-
-count = scraperwiki.sqlite.get_var('count')
-
 #Scrape for time periods taking into account previous runs using 'upto'
 
 for x in xrange(upto, len(periods)):
