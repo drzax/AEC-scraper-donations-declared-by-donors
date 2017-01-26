@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
 import csv
-import mechanize 
+import mechanize
 import lxml.html
 import scraperwiki
 import requests
- 
+
 annDonorsurl = "http://periodicdisclosures.aec.gov.au/AnalysisDonor.aspx"
- 
-# periods = [
+periods = [
 # {"year":"1998-1999","id":"1"},
 # {"year":"1999-2000","id":"2"},
 # {"year":"2000-2001","id":"3"},
@@ -76,139 +75,137 @@ partyGroups = [{"entityID":4,"group":"alp"},
 #Check if scraper has been run before, see where it got up to
 
 if scraperwiki.sqlite.get_var('upto'):
-    upto = scraperwiki.sqlite.get_var('upto')
-    print "Scraper upto:",upto,"period:",periods[upto]['year']
+	upto = scraperwiki.sqlite.get_var('upto')
+	print "Scraper upto:",upto,"period:",periods[upto]['year']
 else:
-    print "Scraper first run"
-    upto = 0    
+	print "Scraper first run"
+	upto = 0
 
-#to run entirely again, just set upto to 0 
-upto = 0    
+#to run entirely again, just set upto to 0
+upto = 0
 
 #Scrape for time periods taking into account previous runs using 'upto'
 
 for x in xrange(upto, len(periods)):
-    br = mechanize.Browser()
-    response = br.open(annDonorsurl)
-    print "Loading data for "+periods[x]['year']
-    #for form in br.forms():
-    #    print form
+	br = mechanize.Browser()
+	response = br.open(annDonorsurl)
+	print "Loading data for "+periods[x]['year']
+	#for form in br.forms():
+	#	print form
 
 
-    #print "All forms:", [ form.name  for form in br.forms() ]
- 
-    br.select_form(nr=0)
-    #print br.form
-    print periods[x]['id']
+	#print "All forms:", [ form.name  for form in br.forms() ]
+	br.select_form(nr=0)
+	#print br.form
+	print periods[x]['id']
 
-    br['ctl00$dropDownListPeriod']=[periods[x]['id']]
-    response = br.submit("ctl00$buttonGo")
+	br['ctl00$dropDownListPeriod']=[periods[x]['id']]
+	response = br.submit("ctl00$buttonGo")
 
-    response = br.open(annDonorsurl)
-    br.select_form(nr=0)
-    response = br.submit("ctl00$ContentPlaceHolderBody$analysisControl$buttonAnalyse")
-
-
-    br.select_form(nr=0)
-    br['ctl00$ContentPlaceHolderBody$pagingControl$cboPageSize']=["999999"]
-    response = br.submit("ctl00$ContentPlaceHolderBody$pagingControl$buttonGo")
-
-    html = response.read()
-    #print html
-
-    root = lxml.html.fromstring(html)
-    trs = root.cssselect("#ContentPlaceHolderBody_gridViewAnalysis tr")
-
-    #get last row scraped
-    
-    if scraperwiki.sqlite.get_var('uptotrs'):
-        uptotrs = scraperwiki.sqlite.get_var('uptors')
-        #print "Scraper upto row:", uptotrs
-    else:
-        print "Scraper first row"
-        uptotrs = 1 
-
-    uptotrs = 1    
-
-    for i in xrange(uptotrs,len(trs)):
-        #print i
-        tds = trs[i].cssselect("td")
-
-        donType = lxml.html.tostring(tds[0]).split('<a href="')[1].split('.aspx?')[0]
-        #print donType
-        submissionID = lxml.html.tostring(tds[0]).split('SubmissionId=')[1].split('&amp;ClientId=')[0]
-        #print submissionID
-        clientID = lxml.html.tostring(tds[0]).split('ClientId=')[1].split('">')[0]
-        #print clientID
-        donName = lxml.html.tostring(tds[0]).split('">')[2].split('</a')[0]
-        #print donName
-        address = tds[1].text
-        #print address
-        state = tds[2].text
-        #print state
-        postcode = tds[3].text
-        #print postcode
-        value = tds[4].text.replace("$", "").replace(",","")
-        #print value
-        donUrl = lxml.html.tostring(tds[0]).split('<a href="')[1].split('">')[0]
-        #print donUrl 
-        recipName = lxml.html.tostring(tds[5]).split('">')[2].split('</a')[0]
-        #print recipName
-        recipUrl = lxml.html.tostring(tds[5]).split('<a href="')[1].split('">')[0]
-        #print recipUrl
-        recipType = lxml.html.tostring(tds[5]).split('<a href="')[1].split('.aspx?')[0]
-        #print "recipType", recipType
-        recipID = lxml.html.tostring(tds[5]).split('ClientId=')[1].split('">')[0]
-        #print recipID
-
-        fixedUrl = 'http://periodicdisclosures.aec.gov.au/' + donUrl.replace("amp;","")
-        html = requests.get(fixedUrl).content
-        dom = lxml.html.fromstring(html)
-        h2s = dom.cssselect(".rightColfadWideHold h2")
-        if donType == "Donor" or donType == "AssociatedEntity":
-            cleanDonName = h2s[0].text.strip()
-            #print cleanDonName.strip()
-        if donType == "Party":
-            cleanDonName = h2s[1].text.strip()
-            #print cleanDonName.strip()
-
-        fixedUrl = 'http://periodicdisclosures.aec.gov.au/' + recipUrl.replace("amp;","")
-        html = requests.get(fixedUrl).content
-        #print fixedUrl, donType
-        dom = lxml.html.fromstring(html)
-        h2s = dom.cssselect(".rightColfadWideHold h2")
-        if recipType == "Donor" or recipType == "AssociatedEntity":
-            cleanRecipName = h2s[0].text.strip()
-            #print cleanRecipName.strip()
-        if recipType == "Party":
-            cleanRecipName = h2s[1].text.strip()
-            #print cleanRecipName.strip()
+	response = br.open(annDonorsurl)
+	br.select_form(nr=0)
+	response = br.submit("ctl00$ContentPlaceHolderBody$analysisControl$buttonAnalyse")
 
 
-        data = {}
-        data['donType'] = donType
-        data['submissionID'] = submissionID
-        data['clientID'] = clientID
-        data['donName'] = donName
-        data['address'] = address
-        data['state'] = state
-        data['postcode'] = postcode
-        data['value'] = value
-        data['donUrl'] = donUrl
-        data['recipUrl'] = recipUrl
-        data['yearcount'] = i
-        data['period'] = periods[x]['year']
-        data['cleanDonName'] = cleanDonName
-        data['recipName'] = recipName
-        data['cleanRecipName'] = cleanRecipName
-        data['recipID'] = recipID
+	br.select_form(nr=0)
+	br['ctl00$ContentPlaceHolderBody$pagingControl$cboPageSize']=["999999"]
+	response = br.submit("ctl00$ContentPlaceHolderBody$pagingControl$buttonGo")
 
-        for groupID in partyGroups:
-            if recipID == groupID['entityID']:
-                data['partyGroup'] = groupID['group']
+	html = response.read()
+	#print html
 
-        print data
-        scraperwiki.sqlite.save(unique_keys=["yearcount","donUrl","period"], data=data)
-        scraperwiki.sqlite.save_var('uptotrs', i)
+	root = lxml.html.fromstring(html)
+	trs = root.cssselect("#ContentPlaceHolderBody_gridViewAnalysis tr")
 
-    scraperwiki.sqlite.save_var('upto', x)        
+	#get last row scraped
+	if scraperwiki.sqlite.get_var('uptotrs'):
+		uptotrs = scraperwiki.sqlite.get_var('uptors')
+		#print "Scraper upto row:", uptotrs
+	else:
+		print "Scraper first row"
+		uptotrs = 1
+
+	uptotrs = 1
+
+	for i in xrange(uptotrs,len(trs)):
+		#print i
+		tds = trs[i].cssselect("td")
+
+		donType = lxml.html.tostring(tds[0]).split('<a href="')[1].split('.aspx?')[0]
+		#print donType
+		submissionID = lxml.html.tostring(tds[0]).split('SubmissionId=')[1].split('&amp;ClientId=')[0]
+		#print submissionID
+		clientID = lxml.html.tostring(tds[0]).split('ClientId=')[1].split('">')[0]
+		#print clientID
+		donName = lxml.html.tostring(tds[0]).split('">')[2].split('</a')[0]
+		#print donName
+		address = tds[1].text
+		#print address
+		state = tds[2].text
+		#print state
+		postcode = tds[3].text
+		#print postcode
+		value = tds[4].text.replace("$", "").replace(",","")
+		#print value
+		donUrl = lxml.html.tostring(tds[0]).split('<a href="')[1].split('">')[0]
+		#print donUrl
+		recipName = lxml.html.tostring(tds[5]).split('">')[2].split('</a')[0]
+		#print recipName
+		recipUrl = lxml.html.tostring(tds[5]).split('<a href="')[1].split('">')[0]
+		#print recipUrl
+		recipType = lxml.html.tostring(tds[5]).split('<a href="')[1].split('.aspx?')[0]
+		#print "recipType", recipType
+		recipID = lxml.html.tostring(tds[5]).split('ClientId=')[1].split('">')[0]
+		#print recipID
+
+		fixedUrl = 'http://periodicdisclosures.aec.gov.au/' + donUrl.replace("amp;","")
+		html = requests.get(fixedUrl).content
+		dom = lxml.html.fromstring(html)
+		h2s = dom.cssselect(".rightColfadWideHold h2")
+		if donType == "Donor" or donType == "AssociatedEntity":
+			cleanDonName = h2s[0].text.strip()
+			#print cleanDonName.strip()
+		if donType == "Party":
+			cleanDonName = h2s[1].text.strip()
+			#print cleanDonName.strip()
+
+		fixedUrl = 'http://periodicdisclosures.aec.gov.au/' + recipUrl.replace("amp;","")
+		html = requests.get(fixedUrl).content
+		#print fixedUrl, donType
+		dom = lxml.html.fromstring(html)
+		h2s = dom.cssselect(".rightColfadWideHold h2")
+		if recipType == "Donor" or recipType == "AssociatedEntity":
+			cleanRecipName = h2s[0].text.strip()
+			#print cleanRecipName.strip()
+		if recipType == "Party":
+			cleanRecipName = h2s[1].text.strip()
+			#print cleanRecipName.strip()
+
+
+		data = {}
+		data['donType'] = donType
+		data['submissionID'] = submissionID
+		data['clientID'] = clientID
+		data['donName'] = donName
+		data['address'] = address
+		data['state'] = state
+		data['postcode'] = postcode
+		data['value'] = value
+		data['donUrl'] = donUrl
+		data['recipUrl'] = recipUrl
+		data['yearcount'] = i
+		data['period'] = periods[x]['year']
+		data['cleanDonName'] = cleanDonName
+		data['recipName'] = recipName
+		data['cleanRecipName'] = cleanRecipName
+		data['recipID'] = recipID
+
+		for groupID in partyGroups:
+			if recipID == groupID['entityID']:
+				data['partyGroup'] = groupID['group']
+
+		print data
+		scraperwiki.sqlite.save(unique_keys=["yearcount","donUrl","period"], data=data)
+		scraperwiki.sqlite.save_var('uptotrs', i)
+
+	scraperwiki.sqlite.save_var('upto', x)
