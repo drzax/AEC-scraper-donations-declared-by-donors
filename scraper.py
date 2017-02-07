@@ -8,26 +8,25 @@ import requests
 
 annDonorsurl = "http://periodicdisclosures.aec.gov.au/AnalysisDonor.aspx"
 periods = [
-# {"year":"1998-1999","id":"1"},
-# {"year":"1999-2000","id":"2"},
-# {"year":"2000-2001","id":"3"},
-# {"year":"2001-2002","id":"4"},
-# {"year":"2002-2003","id":"5"},
-# {"year":"2003-2004","id":"6"},
-# {"year":"2004-2005","id":"7"},
-# {"year":"2005-2006","id":"8"},
-# {"year":"2006-2007","id":"9"},
-# {"year":"2007-2008","id":"10"},
-# {"year":"2008-2009","id":"23"},
-# {"year":"2009-2010","id":"24"},
-# {"year":"2010-2011","id":"48"},
-# {"year":"2011-2012","id":"49"},
-# {"year":"2012-2013","id":"51"},
-# {"year":"2013-2014","id":"55"},
-# {"year":"2014-2015","id":"56"}
-# ]
-
-periods = [{"year":"2014-2015","id":"56"}]
+	{"year":"1998-1999","id":"1"},
+	{"year":"1999-2000","id":"2"},
+	{"year":"2000-2001","id":"3"},
+	{"year":"2001-2002","id":"4"},
+	{"year":"2002-2003","id":"5"},
+	{"year":"2003-2004","id":"6"},
+	{"year":"2004-2005","id":"7"},
+	{"year":"2005-2006","id":"8"},
+	{"year":"2006-2007","id":"9"},
+	{"year":"2007-2008","id":"10"},
+	{"year":"2008-2009","id":"23"},
+	{"year":"2009-2010","id":"24"},
+	{"year":"2010-2011","id":"48"},
+	{"year":"2011-2012","id":"49"},
+	{"year":"2012-2013","id":"51"},
+	{"year":"2013-2014","id":"55"},
+	{"year":"2014-2015","id":"56"},
+	{"year":"2015-2016","id":"60"}
+]
 
 partyGroups = [{"entityID":4,"group":"alp"},
 {"entityID":52,"group":"alp"},
@@ -72,6 +71,8 @@ partyGroups = [{"entityID":4,"group":"alp"},
 {"entityID":24,"group":"liberal"}
 ]
 
+cachedRequests = {};
+
 #Check if scraper has been run before, see where it got up to
 
 if scraperwiki.sqlite.get_var('upto'):
@@ -82,17 +83,19 @@ else:
 	upto = 0
 
 #to run entirely again, just set upto to 0
-upto = 0
+# upto = 0
 
 #Scrape for time periods taking into account previous runs using 'upto'
 
 for x in xrange(upto, len(periods)):
+
+	cachedRequests[x] = {};
+
 	br = mechanize.Browser()
 	response = br.open(annDonorsurl)
 	print "Loading data for "+periods[x]['year']
 	#for form in br.forms():
 	#	print form
-
 
 	#print "All forms:", [ form.name  for form in br.forms() ]
 	br.select_form(nr=0)
@@ -159,9 +162,14 @@ for x in xrange(upto, len(periods)):
 		#print recipID
 
 		fixedUrl = 'http://periodicdisclosures.aec.gov.au/' + donUrl.replace("amp;","")
-		html = requests.get(fixedUrl).content
-		dom = lxml.html.fromstring(html)
-		h2s = dom.cssselect(".rightColfadWideHold h2")
+		if fixedUrl not in cachedRequests[x]:
+			html = requests.get(fixedUrl).content
+			cachedRequests[x][fixedUrl] = lxml.html.fromstring(html)
+			print "requesting", fixedUrl
+		else:
+			print "Cache hit"
+
+		h2s = cachedRequests[x][fixedUrl].cssselect(".rightColfadWideHold h2")
 		if donType == "Donor" or donType == "AssociatedEntity":
 			cleanDonName = h2s[0].text.strip()
 			#print cleanDonName.strip()
@@ -170,10 +178,14 @@ for x in xrange(upto, len(periods)):
 			#print cleanDonName.strip()
 
 		fixedUrl = 'http://periodicdisclosures.aec.gov.au/' + recipUrl.replace("amp;","")
-		html = requests.get(fixedUrl).content
-		#print fixedUrl, donType
-		dom = lxml.html.fromstring(html)
-		h2s = dom.cssselect(".rightColfadWideHold h2")
+		if fixedUrl not in cachedRequests[x]:
+			html = requests.get(fixedUrl).content
+			cachedRequests[x][fixedUrl] = lxml.html.fromstring(html)
+			print "requesting", fixedUrl
+		else:
+			print "Cache hit"
+
+		h2s = cachedRequests[x][fixedUrl].cssselect(".rightColfadWideHold h2")
 		if recipType == "Donor" or recipType == "AssociatedEntity":
 			cleanRecipName = h2s[0].text.strip()
 			#print cleanRecipName.strip()
@@ -208,4 +220,4 @@ for x in xrange(upto, len(periods)):
 		scraperwiki.sqlite.save(unique_keys=["yearcount","donUrl","period"], data=data)
 		scraperwiki.sqlite.save_var('uptotrs', i)
 
-	scraperwiki.sqlite.save_var('upto', x)
+	scraperwiki.sqlite.save_var('upto', x+1)
